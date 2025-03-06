@@ -5,11 +5,9 @@
 const OURA_DETAILED_SLEEP_ROUTE = '/api/oura/sleep?type=detailed';
 const OURA_DAILY_SLEEP_ROUTE = '/api/oura/sleep?type=daily';
 
-// ⚠️ IMPORTANT: Replace this with your new Oura API token from https://cloud.ouraring.com/personal-access-tokens
-// The current token appears to be invalid or expired
-// You can update this directly here, or preferably in the .env.local file
-// Hardcoding the token as a fallback to ensure it works
-const OURA_TOKEN = process.env.NEXT_PUBLIC_OURA_TOKEN || 'K7YZPNFESE2ZGRETPXXYEFNAXV5473HB';
+// Use environment variable for the Oura API token
+// Make sure to set this in your .env.local file or Vercel environment variables
+const OURA_TOKEN = process.env.NEXT_PUBLIC_OURA_TOKEN || '';
 
 // For debugging purposes
 console.log('Environment variables loaded:', {
@@ -17,7 +15,13 @@ console.log('Environment variables loaded:', {
   NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL ? 'Set' : 'Not set',
   NEXT_PUBLIC_SUPABASE_KEY: process.env.NEXT_PUBLIC_SUPABASE_KEY ? 'Set' : 'Not set'
 });
-console.log('Using Oura API token:', OURA_TOKEN.substring(0, 5) + '...' + OURA_TOKEN.substring(OURA_TOKEN.length - 5));
+
+// Only log a portion of the token for security
+if (OURA_TOKEN) {
+  console.log('Using Oura API token:', OURA_TOKEN.substring(0, 3) + '...' + OURA_TOKEN.substring(OURA_TOKEN.length - 3));
+} else {
+  console.log('No Oura API token found. Please set NEXT_PUBLIC_OURA_TOKEN in your environment variables.');
+}
 
 export interface OuraSleepData {
   id: string;

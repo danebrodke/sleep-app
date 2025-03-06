@@ -13,7 +13,7 @@ export default function TestPage() {
 
   useEffect(() => {
     // Get the token from environment variables
-    const ouraToken = process.env.NEXT_PUBLIC_OURA_TOKEN || 'K7YZPNFESE2ZGRETPXXYEFNAXV5473HB';
+    const ouraToken = process.env.NEXT_PUBLIC_OURA_TOKEN || '';
     setToken(ouraToken);
     
     // Check environment variables
@@ -58,7 +58,8 @@ export default function TestPage() {
 
   const testDetailedSleepEndpoint = async (startDate: string, endDate: string) => {
     try {
-      const ouraToken = process.env.NEXT_PUBLIC_OURA_TOKEN || 'K7YZPNFESE2ZGRETPXXYEFNAXV5473HB';
+      // Use the token from state instead of hardcoding it
+      const ouraToken = token || process.env.NEXT_PUBLIC_OURA_TOKEN || '';
       
       // Construct the URL with proper query parameters
       const url = new URL('https://api.ouraring.com/v2/usercollection/sleep');
@@ -99,7 +100,8 @@ export default function TestPage() {
 
   const testDailySleepSummaryEndpoint = async (startDate: string, endDate: string) => {
     try {
-      const ouraToken = process.env.NEXT_PUBLIC_OURA_TOKEN || 'K7YZPNFESE2ZGRETPXXYEFNAXV5473HB';
+      // Use the token from state instead of hardcoding it
+      const ouraToken = token || process.env.NEXT_PUBLIC_OURA_TOKEN || '';
       
       // Construct the URL with proper query parameters
       const url = new URL('https://api.ouraring.com/v2/usercollection/daily_sleep');

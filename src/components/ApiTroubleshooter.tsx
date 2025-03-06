@@ -24,7 +24,7 @@ export default function ApiTroubleshooter({ onClose, onUseMockData }: ApiTrouble
       // Test the API connection with a simple request
       const response = await fetch('https://api.ouraring.com/v2/usercollection/personal_info', {
         headers: {
-          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_OURA_TOKEN || 'DU4NWDX66XRZN2WY4DCXFN4UD3HGLKKH'}`,
+          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_OURA_TOKEN || ''}`,
           'Content-Type': 'application/json',
         },
         cache: 'no-store'
