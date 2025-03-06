@@ -13,6 +13,7 @@ import {
 } from 'recharts';
 import { SleepDataWithNotes } from '@/lib/types';
 import { format, parseISO } from 'date-fns';
+import { memo } from 'react';
 
 interface SleepLineGraphProps {
   sleepData: SleepDataWithNotes[];
@@ -20,7 +21,7 @@ interface SleepLineGraphProps {
 }
 
 // Custom tooltip component with darker background
-const CustomTooltip = ({ active, payload, label }: any) => {
+const CustomTooltip = memo(({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
     return (
       <div className="bg-gray-800 text-white p-3 rounded shadow-lg border border-gray-700">
@@ -34,9 +35,12 @@ const CustomTooltip = ({ active, payload, label }: any) => {
     );
   }
   return null;
-};
+});
 
-export default function SleepLineGraph({ sleepData, onNotesUpdated }: SleepLineGraphProps) {
+CustomTooltip.displayName = 'CustomTooltip';
+
+// Memoize the entire component to prevent unnecessary re-renders
+const SleepLineGraph = memo(({ sleepData, onNotesUpdated }: SleepLineGraphProps) => {
   // Transform the data for the chart
   const chartData = useMemo(() => {
     return sleepData.map(item => {
@@ -162,4 +166,8 @@ export default function SleepLineGraph({ sleepData, onNotesUpdated }: SleepLineG
       </ResponsiveContainer>
     </div>
   );
-} 
+});
+
+SleepLineGraph.displayName = 'SleepLineGraph';
+
+export default SleepLineGraph; 

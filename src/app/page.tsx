@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { format, subWeeks } from 'date-fns';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import SleepCard from '@/components/SleepCard';
@@ -31,7 +31,8 @@ export default function Home() {
     setIsClient(true);
   }, []);
 
-  const fetchData = async (useMockData = false) => {
+  // Wrap fetchData in useCallback to prevent it from being recreated on every render
+  const fetchData = useCallback(async (useMockData = false) => {
     setIsLoading(true);
     setError(null);
     setIsMockData(useMockData);
@@ -143,7 +144,7 @@ export default function Home() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [startDate, endDate]); // Only recreate when startDate or endDate changes
 
   // Effect to set initial date range and fetch data when component mounts
   useEffect(() => {
@@ -165,6 +166,12 @@ export default function Home() {
   // Effect to fetch data when date range changes or retry count changes
   useEffect(() => {
     if (startDate && endDate) {
+      console.log('Fetching data due to dependency change:', { 
+        startDate: startDate.toISOString(), 
+        endDate: endDate.toISOString(),
+        retryCount,
+        isMockData
+      });
       fetchData(isMockData);
     }
   }, [startDate, endDate, retryCount, fetchData, isMockData]);
