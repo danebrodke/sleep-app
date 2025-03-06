@@ -1,14 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { format, subMonths, subWeeks } from 'date-fns';
+import { format, subWeeks } from 'date-fns';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import SleepCard from '@/components/SleepCard';
 import SleepList from '@/components/SleepList';
 import SleepLineGraph from '@/components/SleepLineGraph';
 import DateRangeSelector from '@/components/DateRangeSelector';
 import ApiTroubleshooter from '@/components/ApiTroubleshooter';
-import { fetchSleepData, generateMockData, OuraSleepData } from '@/lib/oura-api';
+import { fetchSleepData, generateMockData } from '@/lib/oura-api';
 import { getSleepNotes } from '@/lib/sleep-notes-service';
 import { SleepDataWithNotes } from '@/lib/types';
 import { LayoutGrid, List, LineChart } from 'lucide-react';
@@ -167,7 +167,7 @@ export default function Home() {
     if (startDate && endDate) {
       fetchData(isMockData);
     }
-  }, [startDate, endDate, retryCount]);
+  }, [startDate, endDate, retryCount, fetchData, isMockData]);
 
   const handleDateRangeChange = (start: Date, end: Date) => {
     setStartDate(start);
