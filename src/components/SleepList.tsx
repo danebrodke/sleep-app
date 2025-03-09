@@ -67,6 +67,7 @@ export default function SleepList({ sleepData, onNotesUpdated }: SleepListProps)
             <TableHead className="w-[80px] text-center">Total</TableHead>
             <TableHead className="w-[80px] text-center">Deep</TableHead>
             <TableHead className="w-[80px] text-center">REM</TableHead>
+            <TableHead className="w-[80px] text-center">Efficiency</TableHead>
             <TableHead className="w-[120px]">Notes</TableHead>
             <TableHead className="w-[80px]"></TableHead>
           </TableRow>
@@ -91,6 +92,17 @@ export default function SleepList({ sleepData, onNotesUpdated }: SleepListProps)
                 </TableCell>
                 <TableCell className="text-center text-xs">
                   {formatDuration(item.rem_sleep_duration)}
+                </TableCell>
+                <TableCell className="text-center text-xs">
+                  <Badge 
+                    className={`${
+                      item.efficiency >= 85 ? 'bg-green-600' : 
+                      item.efficiency >= 70 ? 'bg-yellow-600' : 
+                      'bg-red-600'
+                    } text-white font-medium`}
+                  >
+                    {Math.round(item.efficiency)}
+                  </Badge>
                 </TableCell>
                 <TableCell className="text-xs">
                   {hasNotes ? (

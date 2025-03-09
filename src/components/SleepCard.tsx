@@ -103,6 +103,16 @@ export default function SleepCard({ sleepData, onNotesUpdated }: SleepCardProps)
             {formatTime(sleepData.bedtime_start)} - {formatTime(sleepData.bedtime_end)}
           </div>
         </div>
+        <Badge 
+          className={`${
+            sleepData.efficiency >= 85 ? 'bg-green-600' : 
+            sleepData.efficiency >= 70 ? 'bg-yellow-600' : 
+            'bg-red-600'
+          } text-white font-medium`}
+          title="Sleep Efficiency"
+        >
+          {Math.round(sleepData.efficiency)}
+        </Badge>
       </CardHeader>
       
       <CardContent className="pb-0 pt-0">
