@@ -96,10 +96,11 @@ export default function SleepList({ sleepData, onNotesUpdated }: SleepListProps)
                 <TableCell className="text-center text-xs">
                   <Badge 
                     className={`${
-                      item.efficiency >= 85 ? 'bg-green-600' : 
-                      item.efficiency >= 70 ? 'bg-yellow-600' : 
-                      'bg-red-600'
-                    } text-white font-medium`}
+                      item.efficiency >= 85 ? 'bg-emerald-800 text-emerald-200' : 
+                      item.efficiency >= 70 ? 'bg-amber-800 text-amber-200' : 
+                      'bg-rose-900 text-rose-200'
+                    } font-medium hover:no-underline`}
+                    variant="outline"
                   >
                     {Math.round(item.efficiency)}
                   </Badge>
