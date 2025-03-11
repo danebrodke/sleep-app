@@ -89,7 +89,13 @@ const MOCK_SLEEP_DATA: OuraSleepData[] = [
 
 export async function fetchSleepData(startDate: string, endDate: string): Promise<OuraSleepData[]> {
   console.log(`Fetching sleep data from ${startDate} to ${endDate}`);
-  console.log('Current token being used:', `${OURA_TOKEN.substring(0, 5)}...`);
+  
+  // Check if token is available and log appropriately
+  if (!OURA_TOKEN) {
+    console.warn('No Oura API token available in client. Will rely on server-side token.');
+  } else {
+    console.log('Current token being used:', `${OURA_TOKEN.substring(0, 5)}...`);
+  }
 
   try {
     // First try to fetch daily sleep summary data for scores
@@ -100,12 +106,19 @@ export async function fetchSleepData(startDate: string, endDate: string): Promis
     const sleepScoresByDate: Record<string, number> = {};
     if (summaryData && summaryData.length > 0) {
       console.log(`Found ${summaryData.length} daily sleep summary records with scores`);
+      let scoreCount = 0;
+      
       summaryData.forEach(item => {
         if (item.score) {
           sleepScoresByDate[item.day] = item.score;
+          scoreCount++;
           console.log(`Stored score for ${item.day}: ${item.score}`);
         }
       });
+      
+      console.log(`Total scores found: ${scoreCount} out of ${summaryData.length} records`);
+    } else {
+      console.warn('No summary data found or empty response');
     }
     
     // Now fetch detailed sleep data for the detailed metrics
@@ -170,14 +183,22 @@ async function fetchDetailedSleepData(startDate: string, endDate: string): Promi
     
     // Add a timeout to the fetch request
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout for production
     
     try {
+      console.log(`Fetching detailed sleep data at ${new Date().toISOString()}`);
       const response = await fetch(url, {
-        signal: controller.signal
+        signal: controller.signal,
+        // Add cache control headers to prevent caching issues in production
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
       });
       
       clearTimeout(timeoutId); // Clear the timeout if the request completes
+      console.log(`Detailed sleep data response received at ${new Date().toISOString()}, status: ${response.status}`);
       
       if (!response.ok) {
         console.error(`Error response from API: ${response.status} ${response.statusText}`);
@@ -190,7 +211,7 @@ async function fetchDetailedSleepData(startDate: string, endDate: string): Promi
       
       // Check if the response has the expected structure
       if (!data || !data.data || !Array.isArray(data.data)) {
-        console.error('Unexpected API response structure:', data);
+        console.error('Unexpected API response structure:', JSON.stringify(data).substring(0, 200));
         return [];
       }
       
@@ -315,7 +336,7 @@ async function fetchDetailedSleepData(startDate: string, endDate: string): Promi
       });
     } catch (fetchError: any) {
       if (fetchError.name === 'AbortError') {
-        console.error('Request timed out after 10 seconds');
+        console.error('Request timed out after 15 seconds');
         throw new Error('Request timed out. The server may be experiencing issues.');
       }
       throw fetchError;
@@ -334,14 +355,22 @@ async function fetchDailySleepSummary(startDate: string, endDate: string): Promi
     
     // Add a timeout to the fetch request
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout for production
     
     try {
+      console.log(`Fetching daily sleep summary at ${new Date().toISOString()}`);
       const response = await fetch(url, {
-        signal: controller.signal
+        signal: controller.signal,
+        // Add cache control headers to prevent caching issues in production
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
       });
       
       clearTimeout(timeoutId); // Clear the timeout if the request completes
+      console.log(`Daily sleep summary response received at ${new Date().toISOString()}, status: ${response.status}`);
       
       if (!response.ok) {
         console.error(`Error response from API: ${response.status} ${response.statusText}`);
@@ -354,7 +383,7 @@ async function fetchDailySleepSummary(startDate: string, endDate: string): Promi
       
       // Check if the response has the expected structure
       if (!data || !data.data || !Array.isArray(data.data)) {
-        console.error('Unexpected API response structure:', data);
+        console.error('Unexpected API response structure:', JSON.stringify(data).substring(0, 200));
         return [];
       }
       
@@ -362,6 +391,9 @@ async function fetchDailySleepSummary(startDate: string, endDate: string): Promi
       if (data.data.length > 0) {
         console.log('First daily sleep summary record:', data.data[0]);
         console.log('Sleep score from daily summary:', data.data[0].score);
+        console.log('All scores:', data.data.map((item: any) => ({ day: item.day, score: item.score })));
+      } else {
+        console.warn('Daily sleep summary returned 0 records');
       }
       
       // Map the data to our OuraSleepData interface
@@ -402,7 +434,7 @@ async function fetchDailySleepSummary(startDate: string, endDate: string): Promi
       });
     } catch (fetchError: any) {
       if (fetchError.name === 'AbortError') {
-        console.error('Request timed out after 10 seconds');
+        console.error('Request timed out after 15 seconds');
         throw new Error('Request timed out. The server may be experiencing issues.');
       }
       throw fetchError;
