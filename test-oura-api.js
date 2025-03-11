@@ -1,142 +1,100 @@
-// Test script to diagnose Oura API connection issues
-// Run this with: node test-oura-api.js
+// Test script to directly pull data from the Oura API and examine the response structure
+// This will help us identify where the sleep score is located
 
-// Get the token from .env.local or use the one provided as argument
-const fs = require('fs');
-const path = require('path');
+require('dotenv').config({ path: '.env.local' }); // Load environment variables from .env.local
 
-// Try to read the token from .env.local
-let ouraToken;
-try {
-  const envContent = fs.readFileSync(path.join(__dirname, '.env.local'), 'utf8');
-  const tokenMatch = envContent.match(/NEXT_PUBLIC_OURA_TOKEN=([^\s]+)/);
-  if (tokenMatch && tokenMatch[1]) {
-    ouraToken = tokenMatch[1];
-    console.log('Found token in .env.local:', ouraToken);
-  }
-} catch (error) {
-  console.log('Could not read .env.local file:', error.message);
-}
+const OURA_TOKEN = process.env.NEXT_PUBLIC_OURA_TOKEN;
+const OURA_DETAILED_SLEEP_URL = 'https://api.ouraring.com/v2/usercollection/sleep';
+const OURA_DAILY_SLEEP_URL = 'https://api.ouraring.com/v2/usercollection/daily_sleep';
 
-// Use command line argument if provided
-if (process.argv.length > 2) {
-  ouraToken = process.argv[2];
-  console.log('Using token from command line argument');
-}
-
-if (!ouraToken) {
-  console.error('No Oura API token found. Please provide one as a command line argument.');
-  process.exit(1);
-}
-
-// Get date ranges for testing
+// Get today's date and 7 days ago for the date range
 const today = new Date();
-const oneMonthAgo = new Date();
-oneMonthAgo.setMonth(today.getMonth() - 1);
+const sevenDaysAgo = new Date();
+sevenDaysAgo.setDate(today.getDate() - 7);
 
-const formatDate = (date) => {
-  return date.toISOString().split('T')[0];
-};
+const startDate = sevenDaysAgo.toISOString().split('T')[0];
+const endDate = today.toISOString().split('T')[0];
 
-const startDate = formatDate(oneMonthAgo);
-const endDate = formatDate(today);
+console.log(`Testing Oura API with date range: ${startDate} to ${endDate}`);
+console.log(`Using token: ${OURA_TOKEN ? OURA_TOKEN.substring(0, 5) + '...' + OURA_TOKEN.substring(OURA_TOKEN.length - 5) : 'Not set'}`);
 
-// Test endpoints
-const endpoints = [
-  {
-    name: 'Personal Info',
-    url: 'https://api.ouraring.com/v2/usercollection/personal_info',
-    method: 'GET'
-  },
-  {
-    name: 'Daily Sleep (Last Month)',
-    url: `https://api.ouraring.com/v2/usercollection/daily_sleep?start_date=${startDate}&end_date=${endDate}`,
-    method: 'GET'
-  }
-];
-
-// Function to test an endpoint
-async function testEndpoint(endpoint) {
-  console.log(`\nTesting ${endpoint.name} endpoint: ${endpoint.url}`);
-  
+// Function to fetch data from the Oura API
+async function fetchOuraData(url, startDate, endDate) {
   try {
-    const response = await fetch(endpoint.url, {
-      method: endpoint.method,
+    const fullUrl = `${url}?start_date=${startDate}&end_date=${endDate}`;
+    console.log(`Fetching from: ${fullUrl}`);
+    
+    const response = await fetch(fullUrl, {
       headers: {
-        'Authorization': `Bearer ${ouraToken}`,
+        'Authorization': `Bearer ${OURA_TOKEN}`,
         'Content-Type': 'application/json',
-      }
+      },
     });
     
-    console.log(`Status: ${response.status} ${response.statusText}`);
-    
-    if (response.ok) {
-      const data = await response.json();
-      
-      // For sleep data, check if there are any records
-      if (endpoint.url.includes('daily_sleep')) {
-        if (data.data && data.data.length > 0) {
-          console.log(`Found ${data.data.length} sleep records from ${startDate} to ${endDate}`);
-          console.log('First record:', JSON.stringify(data.data[0], null, 2));
-        } else {
-          console.log('No sleep records found for the specified date range.');
-          console.log('This could be because:');
-          console.log('1. Your Oura Ring hasn\'t synced data for this period');
-          console.log('2. You haven\'t worn your ring during this period');
-          console.log('3. Your token doesn\'t have permission to access sleep data');
-        }
-      } else {
-        console.log('Response data:', JSON.stringify(data, null, 2).substring(0, 500) + '...');
-      }
-      return true;
-    } else {
+    if (!response.ok) {
+      console.error(`Error response from API: ${response.status} ${response.statusText}`);
       const errorText = await response.text();
-      console.error('Error response:', errorText);
-      return false;
+      console.error('Error details:', errorText);
+      return null;
     }
+    
+    return await response.json();
   } catch (error) {
-    console.error('Request failed:', error.message);
-    return false;
+    console.error('Error fetching data:', error);
+    return null;
   }
 }
 
-// Main function to run all tests
-async function runTests() {
-  console.log('=== Oura API Connection Test ===');
-  console.log(`Using token: ${ouraToken.substring(0, 5)}...${ouraToken.substring(ouraToken.length - 5)}`);
-  console.log(`Testing date range: ${startDate} to ${endDate}`);
+// Function to examine the structure of the response
+function examineStructure(data, type) {
+  console.log(`\n=== ${type} API Response ===`);
   
-  let allPassed = true;
-  
-  for (const endpoint of endpoints) {
-    const passed = await testEndpoint(endpoint);
-    allPassed = allPassed && passed;
+  if (!data || !data.data || !Array.isArray(data.data) || data.data.length === 0) {
+    console.log('No data found or invalid response structure');
+    return;
   }
   
-  console.log('\n=== Test Summary ===');
-  if (allPassed) {
-    console.log('✅ All tests passed! Your Oura API token is working correctly.');
-    console.log('If your app is still showing mock data, check:');
-    console.log('1. The app might be using a cached version of the token');
-    console.log('2. The date range you\'re viewing might not have data');
-    console.log('3. There might be an issue with how the app is processing the API response');
+  console.log(`Found ${data.data.length} records`);
+  
+  // Examine the first record in detail
+  const firstRecord = data.data[0];
+  console.log('\nFirst record top-level keys:', Object.keys(firstRecord));
+  
+  // Check for sleep score in various possible locations
+  console.log('\nPossible sleep score locations:');
+  console.log('- Direct score:', firstRecord.score);
+  console.log('- sleep_score:', firstRecord.sleep_score);
+  console.log('- sleep_score_delta:', firstRecord.sleep_score_delta);
+  
+  // Check if contributors exists and examine its structure
+  if (firstRecord.contributors) {
+    console.log('\nContributors object keys:', Object.keys(firstRecord.contributors));
     
-    // Check if we need to restart the Next.js server
-    console.log('\n=== Next Steps ===');
-    console.log('Try restarting your Next.js development server:');
-    console.log('1. Stop the current server (Ctrl+C)');
-    console.log('2. Run: npm run dev');
-    console.log('This will ensure the app uses the latest environment variables.');
-  } else {
-    console.log('❌ Some tests failed. Your Oura API token might be invalid or have insufficient permissions.');
-    console.log('Please check:');
-    console.log('1. Your token has the correct scopes (daily, personal, session)');
-    console.log('2. Your token hasn\'t expired');
-    console.log('3. Your Oura account is active and in good standing');
+    if (firstRecord.contributors.score) {
+      console.log('- contributors.score:', firstRecord.contributors.score);
+      console.log('- contributors.score.value:', firstRecord.contributors.score.value);
+    }
   }
+  
+  // Print the entire first record for detailed examination
+  console.log('\nComplete first record:');
+  console.log(JSON.stringify(firstRecord, null, 2));
+}
+
+// Main function to run the tests
+async function runTests() {
+  // Test the detailed sleep API
+  console.log('\nTesting detailed sleep API...');
+  const detailedData = await fetchOuraData(OURA_DETAILED_SLEEP_URL, startDate, endDate);
+  examineStructure(detailedData, 'Detailed Sleep');
+  
+  // Test the daily sleep summary API
+  console.log('\nTesting daily sleep summary API...');
+  const dailyData = await fetchOuraData(OURA_DAILY_SLEEP_URL, startDate, endDate);
+  examineStructure(dailyData, 'Daily Sleep Summary');
 }
 
 // Run the tests
 runTests().catch(error => {
-  console.error('Test script error:', error);
+  console.error('Error running tests:', error);
 }); 
