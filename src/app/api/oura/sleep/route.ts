@@ -86,6 +86,22 @@ export async function GET(request: Request) {
     const data = await response.json();
     console.log(`[Server] Successfully fetched Oura data, found ${data.data?.length || 0} records`);
     
+    // Add detailed logging for debugging the sleep score
+    if (data.data && data.data.length > 0) {
+      const firstRecord = data.data[0];
+      console.log('[Server] First record structure:', JSON.stringify(firstRecord, null, 2));
+      
+      // Check for sleep score in different locations
+      console.log('[Server] Sleep score direct:', firstRecord.score);
+      
+      if (firstRecord.contributors) {
+        console.log('[Server] Sleep score in contributors:', firstRecord.contributors.score?.value);
+      }
+      
+      // Log all top-level keys
+      console.log('[Server] Top-level keys:', Object.keys(firstRecord));
+    }
+    
     // Return the data
     return NextResponse.json(data);
   } catch (error) {
