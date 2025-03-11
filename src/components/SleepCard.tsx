@@ -106,12 +106,14 @@ export default function SleepCard({ sleepData, onNotesUpdated }: SleepCardProps)
         <Badge 
           className={`${
             sleepData.score >= 75 ? 'bg-emerald-800 text-emerald-200' : 
-            'bg-amber-800 text-amber-200'
+            sleepData.score >= 60 ? 'bg-amber-800 text-amber-200' :
+            sleepData.score > 0 ? 'bg-red-800 text-red-200' :
+            'bg-gray-800 text-gray-200'
           } font-medium hover:no-underline`}
           title="Sleep Score"
           variant="outline"
         >
-          {sleepData.score || 0}
+          {sleepData.score || 'N/A'}
         </Badge>
       </CardHeader>
       

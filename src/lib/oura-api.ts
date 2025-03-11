@@ -233,6 +233,14 @@ async function fetchDetailedSleepData(startDate: string, endDate: string): Promi
         // Check if sleep data is nested in a 'sleep' property
         const sleepData = item.sleep || item;
         
+        // Debug sleep score specifically
+        console.log('Sleep score debug for item:', item.id || 'unknown');
+        console.log('- Direct score:', sleepData.score);
+        if (sleepData.contributors) {
+          console.log('- Contributors object exists:', typeof sleepData.contributors);
+          console.log('- Score in contributors:', sleepData.contributors.score?.value);
+        }
+        
         // Create a mapped item with our expected structure
         const mappedItem: OuraSleepData = {
           id: sleepData.id || `detailed-${Math.random().toString(36).substring(2, 9)}`,
@@ -254,7 +262,7 @@ async function fetchDetailedSleepData(startDate: string, endDate: string): Promi
           hr_lowest: sleepData.hr_lowest || 0,
           hr_average: sleepData.hr_average || 0,
           temperature_delta: sleepData.temperature_delta || 0,
-          score: sleepData.score || 0
+          score: sleepData.score || (sleepData.contributors && sleepData.contributors.score ? sleepData.contributors.score.value : 0)
         };
         
         return mappedItem;
@@ -349,6 +357,14 @@ async function fetchDailySleepSummary(startDate: string, endDate: string): Promi
         // Check if sleep data is nested in a 'sleep' property
         const sleepData = item.sleep || item;
         
+        // Debug sleep score specifically
+        console.log('Daily sleep score debug for item:', item.id || 'unknown');
+        console.log('- Direct score:', sleepData.score);
+        if (sleepData.contributors) {
+          console.log('- Contributors object exists:', typeof sleepData.contributors);
+          console.log('- Score in contributors:', sleepData.contributors.score?.value);
+        }
+        
         // Create a mapped item with our expected structure
         const mappedItem: OuraSleepData = {
           id: sleepData.id || `summary-${Math.random().toString(36).substring(2, 9)}`,
@@ -370,7 +386,7 @@ async function fetchDailySleepSummary(startDate: string, endDate: string): Promi
           hr_lowest: sleepData.hr_lowest || sleepData.contributors?.restfulness?.hr_lowest || 0,
           hr_average: sleepData.hr_average || sleepData.contributors?.restfulness?.hr_average || 0,
           temperature_delta: sleepData.temperature_delta || sleepData.contributors?.temperature?.value || 0,
-          score: sleepData.score || 0
+          score: sleepData.score || (sleepData.contributors && sleepData.contributors.score ? sleepData.contributors.score.value : 0)
         };
         
         return mappedItem;
