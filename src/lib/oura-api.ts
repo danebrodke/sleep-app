@@ -40,6 +40,7 @@ export interface OuraSleepData {
   hr_average: number;
   temperature_delta: number;
   score: number;
+  _rawData?: any; // Store the original API response for debugging
 }
 
 export interface OuraApiResponse {
@@ -89,13 +90,8 @@ const MOCK_SLEEP_DATA: OuraSleepData[] = [
 
 export async function fetchSleepData(startDate: string, endDate: string): Promise<OuraSleepData[]> {
   console.log(`Fetching sleep data from ${startDate} to ${endDate}`);
-  
-  // Check if token is available and log appropriately
-  if (!OURA_TOKEN) {
-    console.warn('No Oura API token available in client. Will rely on server-side token.');
-  } else {
-    console.log('Current token being used:', `${OURA_TOKEN.substring(0, 5)}...`);
-  }
+  console.log('Current token being used:', `${OURA_TOKEN.substring(0, 5)}...`);
+  console.log('Environment:', process.env.NODE_ENV || 'unknown');
 
   try {
     // First try to fetch daily sleep summary data for scores
@@ -106,19 +102,42 @@ export async function fetchSleepData(startDate: string, endDate: string): Promis
     const sleepScoresByDate: Record<string, number> = {};
     if (summaryData && summaryData.length > 0) {
       console.log(`Found ${summaryData.length} daily sleep summary records with scores`);
-      let scoreCount = 0;
+      let validScoreCount = 0;
       
       summaryData.forEach(item => {
-        if (item.score) {
-          sleepScoresByDate[item.day] = item.score;
-          scoreCount++;
-          console.log(`Stored score for ${item.day}: ${item.score}`);
+        // Ensure we're getting a valid numeric score
+        const score = typeof item.score === 'number' ? item.score : parseInt(String(item.score), 10);
+        
+        if (!isNaN(score) && score > 0) {
+          sleepScoresByDate[item.day] = score;
+          validScoreCount++;
+          console.log(`Stored valid score for ${item.day}: ${score}`);
+        } else {
+          console.warn(`Invalid or missing score for ${item.day}: ${item.score} (${typeof item.score})`);
         }
       });
       
-      console.log(`Total scores found: ${scoreCount} out of ${summaryData.length} records`);
-    } else {
-      console.warn('No summary data found or empty response');
+      console.log(`Total valid scores found: ${validScoreCount} out of ${summaryData.length} records`);
+      
+      // If we have no valid scores, try to extract them from the raw data
+      if (validScoreCount === 0) {
+        console.log('No valid scores found in processed data, checking raw data...');
+        // This is a fallback for production where data structure might be different
+        summaryData.forEach(item => {
+          // Try to access score from raw data if available
+          const rawData = (item as any)._rawData || (item as any).rawData;
+          if (rawData) {
+            const rawScore = rawData.score || 
+                            (rawData.contributors && rawData.contributors.score ? 
+                             rawData.contributors.score.value : null);
+            
+            if (rawScore && !isNaN(rawScore)) {
+              sleepScoresByDate[item.day] = rawScore;
+              console.log(`Extracted score from raw data for ${item.day}: ${rawScore}`);
+            }
+          }
+        });
+      }
     }
     
     // Now fetch detailed sleep data for the detailed metrics
@@ -139,6 +158,12 @@ export async function fetchSleepData(startDate: string, endDate: string): Promis
         }
         return item;
       });
+      
+      // Log the final data to verify scores are present
+      console.log('Final data with scores:', enhancedData.map(item => ({
+        day: item.day,
+        score: item.score || 'N/A'
+      })));
       
       return enhancedData;
     }
@@ -329,7 +354,8 @@ async function fetchDetailedSleepData(startDate: string, endDate: string): Promi
           hr_lowest: sleepData.hr_lowest || 0,
           hr_average: sleepData.hr_average || 0,
           temperature_delta: sleepData.temperature_delta || 0,
-          score: extractedScore
+          score: extractedScore,
+          _rawData: sleepData
         };
         
         return mappedItem;
@@ -389,11 +415,19 @@ async function fetchDailySleepSummary(startDate: string, endDate: string): Promi
       
       // Log the structure of the first record for debugging
       if (data.data.length > 0) {
-        console.log('First daily sleep summary record:', data.data[0]);
-        console.log('Sleep score from daily summary:', data.data[0].score);
-        console.log('All scores:', data.data.map((item: any) => ({ day: item.day, score: item.score })));
-      } else {
-        console.warn('Daily sleep summary returned 0 records');
+        const firstRecord = data.data[0];
+        console.log('First daily sleep summary record structure:', JSON.stringify(firstRecord, null, 2));
+        
+        // Check for score in different possible locations
+        console.log('Score directly on record:', firstRecord.score);
+        console.log('Score type:', typeof firstRecord.score);
+        
+        if (firstRecord.contributors && firstRecord.contributors.score) {
+          console.log('Score in contributors:', firstRecord.contributors.score.value);
+        }
+        
+        // Log all top-level keys to help identify where the score might be
+        console.log('Top-level keys in first record:', Object.keys(firstRecord));
       }
       
       // Map the data to our OuraSleepData interface
@@ -401,9 +435,29 @@ async function fetchDailySleepSummary(startDate: string, endDate: string): Promi
         // Check if sleep data is nested in a 'sleep' property
         const sleepData = item.sleep || item;
         
-        // Debug sleep score specifically
-        console.log('Daily sleep score debug for item:', item.id || 'unknown');
-        console.log('- Direct score:', sleepData.score);
+        // Try to extract the score from various possible locations
+        let extractedScore = 0;
+        
+        // Direct score property (most common)
+        if (sleepData.score !== undefined && sleepData.score !== null) {
+          const scoreValue = typeof sleepData.score === 'number' ? 
+                            sleepData.score : 
+                            parseInt(String(sleepData.score), 10);
+          
+          if (!isNaN(scoreValue)) {
+            extractedScore = scoreValue;
+            console.log(`Using direct score for ${sleepData.day}: ${extractedScore}`);
+          }
+        } 
+        // Score in contributors object
+        else if (sleepData.contributors && sleepData.contributors.score && 
+                sleepData.contributors.score.value !== undefined) {
+          extractedScore = sleepData.contributors.score.value;
+          console.log(`Using contributors.score.value for ${sleepData.day}: ${extractedScore}`);
+        }
+        
+        // Store the raw data for potential fallback use
+        const rawData = sleepData;
         
         // Create a mapped item with our expected structure
         const mappedItem: OuraSleepData = {
@@ -426,9 +480,11 @@ async function fetchDailySleepSummary(startDate: string, endDate: string): Promi
           hr_lowest: sleepData.hr_lowest || sleepData.contributors?.restfulness?.hr_lowest || 0,
           hr_average: sleepData.hr_average || sleepData.contributors?.restfulness?.hr_average || 0,
           temperature_delta: sleepData.temperature_delta || sleepData.contributors?.temperature?.value || 0,
-          // Use the direct score field which we confirmed exists in the daily sleep summary
-          score: sleepData.score || 0
-        };
+          // Use the extracted score
+          score: extractedScore,
+          // Add raw data for potential fallback use
+          _rawData: rawData
+        } as OuraSleepData & { _rawData?: any };
         
         return mappedItem;
       });

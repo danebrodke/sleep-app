@@ -92,6 +92,35 @@ export default function SleepCard({ sleepData, onNotesUpdated }: SleepCardProps)
     return 'bg-red-100 text-red-800';
   };
 
+  // Try to get the score from different possible sources
+  const getDisplayScore = () => {
+    // If we have a valid score directly, use it
+    if (sleepData.score && sleepData.score > 0) {
+      return sleepData.score;
+    }
+    
+    // Try to get score from raw data if available
+    if (sleepData._rawData) {
+      const rawData = sleepData._rawData;
+      
+      // Check direct score property
+      if (rawData.score) {
+        return rawData.score;
+      }
+      
+      // Check contributors.score.value
+      if (rawData.contributors && rawData.contributors.score && rawData.contributors.score.value) {
+        return rawData.contributors.score.value;
+      }
+    }
+    
+    // If all else fails, return 'N/A'
+    return 'N/A';
+  };
+  
+  const displayScore = getDisplayScore();
+  const isValidScore = displayScore !== 'N/A';
+
   return (
     <Card className="w-full shadow-sm hover:shadow-md transition-shadow duration-200 bg-gray-900/50 border-gray-800">
       <CardHeader className="pb-2 flex flex-row items-center justify-between">
@@ -105,15 +134,15 @@ export default function SleepCard({ sleepData, onNotesUpdated }: SleepCardProps)
         </div>
         <Badge 
           className={`${
-            sleepData.score >= 75 ? 'bg-emerald-800 text-emerald-200' : 
-            sleepData.score >= 60 ? 'bg-amber-800 text-amber-200' :
-            sleepData.score > 0 ? 'bg-red-800 text-red-200' :
+            isValidScore && displayScore >= 75 ? 'bg-emerald-800 text-emerald-200' : 
+            isValidScore && displayScore >= 60 ? 'bg-amber-800 text-amber-200' :
+            isValidScore && displayScore > 0 ? 'bg-red-800 text-red-200' :
             'bg-gray-800 text-gray-200'
           } font-medium hover:no-underline`}
           title="Sleep Score"
           variant="outline"
         >
-          {sleepData.score || 'N/A'}
+          {displayScore}
         </Badge>
       </CardHeader>
       
