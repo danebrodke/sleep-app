@@ -105,14 +105,13 @@ export default function SleepCard({ sleepData, onNotesUpdated }: SleepCardProps)
         </div>
         <Badge 
           className={`${
-            sleepData.efficiency >= 85 ? 'bg-emerald-800 text-emerald-200' : 
-            sleepData.efficiency >= 70 ? 'bg-amber-800 text-amber-200' : 
-            'bg-rose-900 text-rose-200'
+            sleepData.score >= 75 ? 'bg-emerald-800 text-emerald-200' : 
+            'bg-amber-800 text-amber-200'
           } font-medium hover:no-underline`}
-          title="Sleep Efficiency"
+          title="Sleep Score"
           variant="outline"
         >
-          {Math.round(sleepData.efficiency)}
+          {sleepData.score || 0}
         </Badge>
       </CardHeader>
       
