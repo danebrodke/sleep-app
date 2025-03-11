@@ -1,168 +1,155 @@
-// Test script to verify the updated API client
-// Run this with: node test-updated-api.js
+// Test script to verify our updated data mapping logic for the Oura API
+// This will help ensure we correctly extract the sleep score
 
-const fs = require('fs');
-const path = require('path');
+require('dotenv').config({ path: '.env.local' }); // Load environment variables from .env.local
 
-// Try to read the token from .env.local
-let ouraToken;
-try {
-  const envContent = fs.readFileSync(path.join(__dirname, '.env.local'), 'utf8');
-  const tokenMatch = envContent.match(/NEXT_PUBLIC_OURA_TOKEN=([^\s]+)/);
-  if (tokenMatch && tokenMatch[1]) {
-    ouraToken = tokenMatch[1];
-    console.log('Found token in .env.local:', ouraToken);
-  }
-} catch (error) {
-  console.log('Could not read .env.local file:', error.message);
-}
+const OURA_TOKEN = process.env.NEXT_PUBLIC_OURA_TOKEN;
+const OURA_DETAILED_SLEEP_URL = 'https://api.ouraring.com/v2/usercollection/sleep';
+const OURA_DAILY_SLEEP_URL = 'https://api.ouraring.com/v2/usercollection/daily_sleep';
 
-// Use command line argument if provided
-if (process.argv.length > 2) {
-  ouraToken = process.argv[2];
-  console.log('Using token from command line argument');
-}
-
-if (!ouraToken) {
-  console.error('No Oura API token found. Please provide one as a command line argument.');
-  process.exit(1);
-}
-
-// Get date ranges for testing
+// Get today's date and 7 days ago for the date range
 const today = new Date();
-const oneMonthAgo = new Date();
-oneMonthAgo.setMonth(today.getMonth() - 1);
+const sevenDaysAgo = new Date();
+sevenDaysAgo.setDate(today.getDate() - 7);
 
-const formatDate = (date) => {
-  return date.toISOString().split('T')[0];
-};
+const startDate = sevenDaysAgo.toISOString().split('T')[0];
+const endDate = today.toISOString().split('T')[0];
 
-const startDate = formatDate(oneMonthAgo);
-const endDate = formatDate(today);
+console.log(`Testing updated Oura API mapping with date range: ${startDate} to ${endDate}`);
+console.log(`Using token: ${OURA_TOKEN ? OURA_TOKEN.substring(0, 5) + '...' + OURA_TOKEN.substring(OURA_TOKEN.length - 5) : 'Not set'}`);
 
-// Test both endpoints
-async function testBothEndpoints() {
-  console.log('=== Testing Updated Oura API Client ===');
-  console.log(`Using token: ${ouraToken.substring(0, 5)}...${ouraToken.substring(ouraToken.length - 5)}`);
-  console.log(`Date range: ${startDate} to ${endDate}`);
+// Function to fetch data from the Oura API
+async function fetchOuraData(url, startDate, endDate) {
+  try {
+    const fullUrl = `${url}?start_date=${startDate}&end_date=${endDate}`;
+    console.log(`Fetching from: ${fullUrl}`);
+    
+    const response = await fetch(fullUrl, {
+      headers: {
+        'Authorization': `Bearer ${OURA_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+    });
+    
+    if (!response.ok) {
+      console.error(`Error response from API: ${response.status} ${response.statusText}`);
+      const errorText = await response.text();
+      console.error('Error details:', errorText);
+      return null;
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching data:', error);
+    return null;
+  }
+}
+
+// Function to extract sleep score using our updated logic
+function extractSleepScore(sleepData) {
+  console.log('\nExtracting sleep score from:', sleepData.id || 'unknown');
   
-  // Test the detailed sleep endpoint
-  console.log('\n1. Testing detailed sleep endpoint...');
-  const detailedData = await testDetailedSleepEndpoint();
+  // Try to find the sleep score in various possible locations
+  let extractedScore = 0;
   
-  // Test the daily sleep summary endpoint
-  console.log('\n2. Testing daily sleep summary endpoint...');
-  const summaryData = await testDailySleepSummaryEndpoint();
+  // Check direct score property
+  if (sleepData.score !== undefined && sleepData.score !== null) {
+    console.log('- Using direct score:', sleepData.score);
+    extractedScore = sleepData.score;
+  } 
+  // Check contributors.score.value
+  else if (sleepData.contributors?.score?.value !== undefined) {
+    console.log('- Using contributors.score.value:', sleepData.contributors.score.value);
+    extractedScore = sleepData.contributors.score.value;
+  }
+  // Check sleep_score property
+  else if (sleepData.sleep_score !== undefined) {
+    console.log('- Using sleep_score property:', sleepData.sleep_score);
+    extractedScore = sleepData.sleep_score;
+  }
+  // Check sleep_score_delta property
+  else if (sleepData.sleep_score_delta !== undefined) {
+    console.log('- Using sleep_score_delta property:', sleepData.sleep_score_delta);
+    extractedScore = sleepData.sleep_score_delta;
+  }
   
-  console.log('\n=== Test Summary ===');
-  console.log(`Detailed sleep data: ${detailedData ? 'Available' : 'Not available'} (${detailedData ? detailedData.length : 0} records)`);
-  console.log(`Daily sleep summary: ${summaryData ? 'Available' : 'Not available'} (${summaryData ? summaryData.length : 0} records)`);
+  console.log('- Final extracted score:', extractedScore);
+  return extractedScore;
+}
+
+// Function to test our updated mapping logic
+function testUpdatedMapping(data, type) {
+  console.log(`\n=== Testing Updated Mapping for ${type} ===`);
   
-  if (detailedData || summaryData) {
-    console.log('\n✅ At least one endpoint returned data. Your updated API client should work!');
-    console.log('Next steps:');
-    console.log('1. Restart your Next.js development server');
-    console.log('2. Test the app in your browser');
+  if (!data || !data.data || !Array.isArray(data.data) || data.data.length === 0) {
+    console.log('No data found or invalid response structure');
+    return;
+  }
+  
+  console.log(`Processing ${data.data.length} records`);
+  
+  // Process each record and extract the sleep score
+  const mappedRecords = data.data.map(item => {
+    const sleepData = item.sleep || item;
+    const score = extractSleepScore(sleepData);
+    
+    return {
+      id: sleepData.id || `unknown-${Math.random().toString(36).substring(2, 9)}`,
+      day: sleepData.day || 'unknown',
+      score: score
+    };
+  });
+  
+  // Print the mapped records
+  console.log('\nMapped Records:');
+  mappedRecords.forEach(record => {
+    console.log(`- ${record.day}: Score = ${record.score || 'N/A'}`);
+  });
+  
+  // Check if any records have a score of 0 or undefined
+  const missingScores = mappedRecords.filter(record => !record.score);
+  if (missingScores.length > 0) {
+    console.log(`\n⚠️ Warning: ${missingScores.length} records have missing scores!`);
   } else {
-    console.log('\n❌ No data available from either endpoint.');
-    console.log('This could be because:');
-    console.log('1. Your Oura Ring hasn\'t synced data for this period');
-    console.log('2. You haven\'t worn your ring during this period');
-    console.log('3. Your token doesn\'t have the necessary permissions');
+    console.log('\n✅ All records have valid scores!');
   }
+  
+  return mappedRecords;
 }
 
-// Test the detailed sleep endpoint
-async function testDetailedSleepEndpoint() {
-  try {
-    const url = new URL('https://api.ouraring.com/v2/usercollection/sleep');
-    url.searchParams.append('start_date', startDate);
-    url.searchParams.append('end_date', endDate);
+// Main function to run the tests
+async function runTests() {
+  // Test the detailed sleep API
+  console.log('\nTesting detailed sleep API with updated mapping...');
+  const detailedData = await fetchOuraData(OURA_DETAILED_SLEEP_URL, startDate, endDate);
+  const detailedMapped = testUpdatedMapping(detailedData, 'Detailed Sleep');
+  
+  // Test the daily sleep summary API
+  console.log('\nTesting daily sleep summary API with updated mapping...');
+  const dailyData = await fetchOuraData(OURA_DAILY_SLEEP_URL, startDate, endDate);
+  const dailyMapped = testUpdatedMapping(dailyData, 'Daily Sleep Summary');
+  
+  // Compare the results
+  if (detailedMapped && dailyMapped) {
+    console.log('\n=== Comparison of Detailed vs Daily Sleep Scores ===');
     
-    console.log(`Requesting: ${url.toString()}`);
-    
-    const response = await fetch(url.toString(), {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${ouraToken}`,
-        'Content-Type': 'application/json',
-      }
+    // Create a map of daily scores by date
+    const dailyScoresByDate = {};
+    dailyMapped.forEach(record => {
+      dailyScoresByDate[record.day] = record.score;
     });
     
-    console.log(`Response status: ${response.status} ${response.statusText}`);
-    
-    if (!response.ok) {
-      console.error('Error response:', await response.text());
-      return null;
-    }
-    
-    const data = await response.json();
-    
-    if (!data || !Array.isArray(data.data)) {
-      console.error('Unexpected API response format:', data);
-      return null;
-    }
-    
-    console.log(`Found ${data.data.length} detailed sleep records`);
-    
-    if (data.data.length > 0) {
-      console.log('First record keys:', Object.keys(data.data[0]));
-      console.log('First record sample:', JSON.stringify(data.data[0]).substring(0, 200) + '...');
-    }
-    
-    return data.data;
-  } catch (error) {
-    console.error('Error testing detailed sleep endpoint:', error);
-    return null;
-  }
-}
-
-// Test the daily sleep summary endpoint
-async function testDailySleepSummaryEndpoint() {
-  try {
-    const url = new URL('https://api.ouraring.com/v2/usercollection/daily_sleep');
-    url.searchParams.append('start_date', startDate);
-    url.searchParams.append('end_date', endDate);
-    
-    console.log(`Requesting: ${url.toString()}`);
-    
-    const response = await fetch(url.toString(), {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${ouraToken}`,
-        'Content-Type': 'application/json',
+    // Compare with detailed scores
+    detailedMapped.forEach(record => {
+      const dailyScore = dailyScoresByDate[record.day];
+      if (dailyScore !== undefined) {
+        console.log(`- ${record.day}: Detailed = ${record.score || 'N/A'}, Daily = ${dailyScore || 'N/A'}`);
       }
     });
-    
-    console.log(`Response status: ${response.status} ${response.statusText}`);
-    
-    if (!response.ok) {
-      console.error('Error response:', await response.text());
-      return null;
-    }
-    
-    const data = await response.json();
-    
-    if (!data || !Array.isArray(data.data)) {
-      console.error('Unexpected API response format:', data);
-      return null;
-    }
-    
-    console.log(`Found ${data.data.length} daily sleep summary records`);
-    
-    if (data.data.length > 0) {
-      console.log('First record keys:', Object.keys(data.data[0]));
-      console.log('First record sample:', JSON.stringify(data.data[0]).substring(0, 200) + '...');
-    }
-    
-    return data.data;
-  } catch (error) {
-    console.error('Error testing daily sleep summary endpoint:', error);
-    return null;
   }
 }
 
 // Run the tests
-testBothEndpoints().catch(error => {
-  console.error('Test script error:', error);
+runTests().catch(error => {
+  console.error('Error running tests:', error);
 }); 

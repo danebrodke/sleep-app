@@ -241,6 +241,32 @@ async function fetchDetailedSleepData(startDate: string, endDate: string): Promi
           console.log('- Score in contributors:', sleepData.contributors.score?.value);
         }
         
+        // Try to find the sleep score in various possible locations
+        let extractedScore = 0;
+        
+        // Check direct score property
+        if (sleepData.score !== undefined && sleepData.score !== null) {
+          console.log('- Using direct score:', sleepData.score);
+          extractedScore = sleepData.score;
+        } 
+        // Check contributors.score.value
+        else if (sleepData.contributors?.score?.value !== undefined) {
+          console.log('- Using contributors.score.value:', sleepData.contributors.score.value);
+          extractedScore = sleepData.contributors.score.value;
+        }
+        // Check sleep_score property
+        else if (sleepData.sleep_score !== undefined) {
+          console.log('- Using sleep_score property:', sleepData.sleep_score);
+          extractedScore = sleepData.sleep_score;
+        }
+        // Check sleep_score_delta property
+        else if (sleepData.sleep_score_delta !== undefined) {
+          console.log('- Using sleep_score_delta property:', sleepData.sleep_score_delta);
+          extractedScore = sleepData.sleep_score_delta;
+        }
+        
+        console.log('- Final extracted score:', extractedScore);
+        
         // Create a mapped item with our expected structure
         const mappedItem: OuraSleepData = {
           id: sleepData.id || `detailed-${Math.random().toString(36).substring(2, 9)}`,
@@ -262,7 +288,7 @@ async function fetchDetailedSleepData(startDate: string, endDate: string): Promi
           hr_lowest: sleepData.hr_lowest || 0,
           hr_average: sleepData.hr_average || 0,
           temperature_delta: sleepData.temperature_delta || 0,
-          score: sleepData.score || (sleepData.contributors && sleepData.contributors.score ? sleepData.contributors.score.value : 0)
+          score: extractedScore
         };
         
         return mappedItem;
@@ -365,6 +391,32 @@ async function fetchDailySleepSummary(startDate: string, endDate: string): Promi
           console.log('- Score in contributors:', sleepData.contributors.score?.value);
         }
         
+        // Try to find the sleep score in various possible locations
+        let extractedScore = 0;
+        
+        // Check direct score property
+        if (sleepData.score !== undefined && sleepData.score !== null) {
+          console.log('- Using direct score:', sleepData.score);
+          extractedScore = sleepData.score;
+        } 
+        // Check contributors.score.value
+        else if (sleepData.contributors?.score?.value !== undefined) {
+          console.log('- Using contributors.score.value:', sleepData.contributors.score.value);
+          extractedScore = sleepData.contributors.score.value;
+        }
+        // Check sleep_score property
+        else if (sleepData.sleep_score !== undefined) {
+          console.log('- Using sleep_score property:', sleepData.sleep_score);
+          extractedScore = sleepData.sleep_score;
+        }
+        // Check sleep_score_delta property
+        else if (sleepData.sleep_score_delta !== undefined) {
+          console.log('- Using sleep_score_delta property:', sleepData.sleep_score_delta);
+          extractedScore = sleepData.sleep_score_delta;
+        }
+        
+        console.log('- Final extracted score:', extractedScore);
+        
         // Create a mapped item with our expected structure
         const mappedItem: OuraSleepData = {
           id: sleepData.id || `summary-${Math.random().toString(36).substring(2, 9)}`,
@@ -386,7 +438,7 @@ async function fetchDailySleepSummary(startDate: string, endDate: string): Promi
           hr_lowest: sleepData.hr_lowest || sleepData.contributors?.restfulness?.hr_lowest || 0,
           hr_average: sleepData.hr_average || sleepData.contributors?.restfulness?.hr_average || 0,
           temperature_delta: sleepData.temperature_delta || sleepData.contributors?.temperature?.value || 0,
-          score: sleepData.score || (sleepData.contributors && sleepData.contributors.score ? sleepData.contributors.score.value : 0)
+          score: extractedScore
         };
         
         return mappedItem;

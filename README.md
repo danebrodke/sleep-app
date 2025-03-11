@@ -1,6 +1,3 @@
-<<<<<<< HEAD
-# sleep-tracker
-=======
 # Sleep Tracker App
 
 A web application that collects sleep data from the Oura API and displays detailed sleep metrics with the ability to add personal notes.
@@ -132,6 +129,46 @@ yarn build
 
 ## Troubleshooting
 
+### Sleep Score Not Displaying
+
+If you're seeing "N/A" instead of actual sleep scores in the app, you can use the included test scripts to diagnose the issue:
+
+1. First, make sure your Oura API token is correctly set in `.env.local`
+
+2. Run the test script to examine the API response structure:
+   ```bash
+   node test-oura-api.js
+   ```
+   This will show you exactly where the sleep score is located in the API response.
+
+3. Run the updated mapping test to verify our extraction logic:
+   ```bash
+   node test-updated-api.js
+   ```
+   This will show if our code can successfully extract the sleep scores.
+
+4. If the tests show that sleep scores are available but not displaying in the app, try:
+   - Clearing your browser cache
+   - Restarting the development server
+   - Checking the browser console for any errors
+
+### Common Issues
+
+1. **Missing Sleep Score**: The Oura API v2 might return the sleep score in different locations:
+   - As a direct `score` property
+   - Inside `contributors.score.value`
+   - As `sleep_score` or `sleep_score_delta`
+
+2. **API Token Permissions**: Make sure your token has the necessary scopes:
+   - daily
+   - personal
+   - session
+
+3. **No Data Available**: If you're not seeing any data:
+   - Ensure your Oura Ring has synced recently
+   - Try a different date range
+   - Verify your token hasn't expired
+
 ### API Connection Issues
 
 If you see "Using mock data" or encounter API connection errors:
@@ -181,4 +218,3 @@ The Oura API v2 has a different structure than v1. If you're seeing issues with 
 ## License
 
 MIT
->>>>>>> 07a1a38 (Intial commit)
