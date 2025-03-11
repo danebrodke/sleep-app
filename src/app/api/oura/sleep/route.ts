@@ -6,8 +6,17 @@ const OURA_DAILY_SLEEP_URL = 'https://api.ouraring.com/v2/usercollection/daily_s
 
 // Get the token from environment variables
 const getOuraToken = () => {
-  const token = process.env.NEXT_PUBLIC_OURA_TOKEN || '';
+  // Try to use a server-only environment variable first (more secure)
+  // Then fall back to the public one if needed
+  const token = process.env.OURA_API_TOKEN || process.env.NEXT_PUBLIC_OURA_TOKEN || '';
   console.log('[Server] Using Oura token:', token ? `${token.substring(0, 5)}...${token.substring(token.length - 5)}` : 'Not set');
+  
+  // Add more detailed logging for production debugging
+  if (!token) {
+    console.error('[Server] ERROR: No Oura API token found in environment variables');
+    console.error('[Server] Available env vars:', Object.keys(process.env).filter(key => !key.includes('SECRET')).join(', '));
+  }
+  
   return token;
 };
 
