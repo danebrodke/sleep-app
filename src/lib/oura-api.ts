@@ -92,27 +92,47 @@ export async function fetchSleepData(startDate: string, endDate: string): Promis
   console.log('Current token being used:', `${OURA_TOKEN.substring(0, 5)}...`);
 
   try {
-    console.log('Attempting to fetch detailed sleep data...');
+    // First try to fetch daily sleep summary data for scores
+    console.log('Attempting to fetch daily sleep summary data first for scores...');
+    const summaryData = await fetchDailySleepSummary(startDate, endDate);
+    
+    // Create a map of sleep scores by date from the summary data
+    const sleepScoresByDate: Record<string, number> = {};
+    if (summaryData && summaryData.length > 0) {
+      console.log(`Found ${summaryData.length} daily sleep summary records with scores`);
+      summaryData.forEach(item => {
+        if (item.score) {
+          sleepScoresByDate[item.day] = item.score;
+          console.log(`Stored score for ${item.day}: ${item.score}`);
+        }
+      });
+    }
+    
+    // Now fetch detailed sleep data for the detailed metrics
+    console.log('Attempting to fetch detailed sleep data for metrics...');
     const detailedData = await fetchDetailedSleepData(startDate, endDate);
     
     if (detailedData && detailedData.length > 0) {
       console.log(`Found ${detailedData.length} detailed sleep records`);
-      // Log a sample of the data for debugging
-      if (detailedData.length > 0) {
-        console.log('Sample detailed sleep data:', detailedData[0]);
-      }
-      return detailedData;
+      
+      // Enhance detailed data with scores from summary data
+      const enhancedData = detailedData.map(item => {
+        if (sleepScoresByDate[item.day]) {
+          console.log(`Enhancing ${item.day} with score: ${sleepScoresByDate[item.day]}`);
+          return {
+            ...item,
+            score: sleepScoresByDate[item.day]
+          };
+        }
+        return item;
+      });
+      
+      return enhancedData;
     }
     
-    console.log('No detailed sleep data found, falling back to daily summary');
-    const summaryData = await fetchDailySleepSummary(startDate, endDate);
-    
+    // If we have summary data but no detailed data, use the summary data
     if (summaryData && summaryData.length > 0) {
-      console.log(`Found ${summaryData.length} daily sleep summary records`);
-      // Log a sample of the data for debugging
-      if (summaryData.length > 0) {
-        console.log('Sample daily sleep summary data:', summaryData[0]);
-      }
+      console.log('No detailed sleep data found, using daily summary data');
       return summaryData;
     }
     
@@ -340,42 +360,8 @@ async function fetchDailySleepSummary(startDate: string, endDate: string): Promi
       
       // Log the structure of the first record for debugging
       if (data.data.length > 0) {
-        console.log('First record structure:', data.data[0]);
-        
-        // Log more detailed structure for debugging
-        console.log('Detailed sleep data structure:');
-        console.log('- id:', data.data[0].id);
-        console.log('- day:', data.data[0].day);
-        console.log('- bedtime_start:', data.data[0].bedtime_start);
-        console.log('- bedtime_end:', data.data[0].bedtime_end);
-        
-        // Log all properties of the first record
-        console.log('All properties of first record:');
-        Object.keys(data.data[0]).forEach(key => {
-          console.log(`- ${key}:`, data.data[0][key]);
-        });
-        
-        // Check for specific sleep duration fields
-        if (data.data[0].duration) {
-          console.log('Found duration field:', data.data[0].duration);
-        }
-        if (data.data[0].total_sleep_duration) {
-          console.log('Found total_sleep_duration field:', data.data[0].total_sleep_duration);
-        }
-        if (data.data[0].total_sleep) {
-          console.log('Found total_sleep field:', data.data[0].total_sleep);
-        }
-        if (data.data[0].sleep_duration) {
-          console.log('Found sleep_duration field:', data.data[0].sleep_duration);
-        }
-        
-        // Check for hypnogram fields
-        if (data.data[0].hypnogram) {
-          console.log('Found hypnogram field:', typeof data.data[0].hypnogram, data.data[0].hypnogram);
-        }
-        if (data.data[0].sleep_phase_5_min) {
-          console.log('Found sleep_phase_5_min field:', data.data[0].sleep_phase_5_min);
-        }
+        console.log('First daily sleep summary record:', data.data[0]);
+        console.log('Sleep score from daily summary:', data.data[0].score);
       }
       
       // Map the data to our OuraSleepData interface
@@ -386,36 +372,6 @@ async function fetchDailySleepSummary(startDate: string, endDate: string): Promi
         // Debug sleep score specifically
         console.log('Daily sleep score debug for item:', item.id || 'unknown');
         console.log('- Direct score:', sleepData.score);
-        if (sleepData.contributors) {
-          console.log('- Contributors object exists:', typeof sleepData.contributors);
-          console.log('- Score in contributors:', sleepData.contributors.score?.value);
-        }
-        
-        // Try to find the sleep score in various possible locations
-        let extractedScore = 0;
-        
-        // Check direct score property
-        if (sleepData.score !== undefined && sleepData.score !== null) {
-          console.log('- Using direct score:', sleepData.score);
-          extractedScore = sleepData.score;
-        } 
-        // Check contributors.score.value
-        else if (sleepData.contributors?.score?.value !== undefined) {
-          console.log('- Using contributors.score.value:', sleepData.contributors.score.value);
-          extractedScore = sleepData.contributors.score.value;
-        }
-        // Check sleep_score property
-        else if (sleepData.sleep_score !== undefined) {
-          console.log('- Using sleep_score property:', sleepData.sleep_score);
-          extractedScore = sleepData.sleep_score;
-        }
-        // Check sleep_score_delta property
-        else if (sleepData.sleep_score_delta !== undefined) {
-          console.log('- Using sleep_score_delta property:', sleepData.sleep_score_delta);
-          extractedScore = sleepData.sleep_score_delta;
-        }
-        
-        console.log('- Final extracted score:', extractedScore);
         
         // Create a mapped item with our expected structure
         const mappedItem: OuraSleepData = {
@@ -438,7 +394,8 @@ async function fetchDailySleepSummary(startDate: string, endDate: string): Promi
           hr_lowest: sleepData.hr_lowest || sleepData.contributors?.restfulness?.hr_lowest || 0,
           hr_average: sleepData.hr_average || sleepData.contributors?.restfulness?.hr_average || 0,
           temperature_delta: sleepData.temperature_delta || sleepData.contributors?.temperature?.value || 0,
-          score: extractedScore
+          // Use the direct score field which we confirmed exists in the daily sleep summary
+          score: sleepData.score || 0
         };
         
         return mappedItem;
