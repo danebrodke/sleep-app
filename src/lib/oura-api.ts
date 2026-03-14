@@ -12,8 +12,6 @@ const OURA_TOKEN = process.env.NEXT_PUBLIC_OURA_TOKEN || '';
 // For debugging purposes
 console.log('Environment variables loaded:', {
   NEXT_PUBLIC_OURA_TOKEN: process.env.NEXT_PUBLIC_OURA_TOKEN ? 'Set' : 'Not set',
-  NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL ? 'Set' : 'Not set',
-  NEXT_PUBLIC_SUPABASE_KEY: process.env.NEXT_PUBLIC_SUPABASE_KEY ? 'Set' : 'Not set'
 });
 
 // Only log a portion of the token for security
